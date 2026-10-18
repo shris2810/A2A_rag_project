@@ -1,0 +1,39 @@
+# Git
+.git/
+.gitignore
+
+# Virtual Environments & Secrets
+venv/
+.venv/
+env/
+ENV/
+*.env
+.env*
+!.env.example
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+
+# Testing & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+temp/
+scratch/
