@@ -43,11 +43,13 @@ if missing_vars:
 
 print("✅ Environment variables loaded successfully")
 
-# Configure logging to reduce noise from MCP cleanup issues (Python 3.13 compatibility)
+# Configure logging to reduce noise from MCP cleanup and OpenTelemetry context detach issues
 logging.getLogger("mcp.client").setLevel(logging.ERROR)
 logging.getLogger("mcp.client.stdio").setLevel(logging.ERROR)
 logging.getLogger("anyio").setLevel(logging.ERROR)
 logging.getLogger("asyncio").setLevel(logging.ERROR)
+logging.getLogger("opentelemetry.context").setLevel(logging.CRITICAL)
+logging.getLogger("opentelemetry.trace").setLevel(logging.CRITICAL)
 
 # Suppress specific asyncio warnings for Python 3.13 MCP compatibility
 import warnings

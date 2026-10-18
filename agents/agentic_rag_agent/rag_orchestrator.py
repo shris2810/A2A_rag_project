@@ -126,8 +126,8 @@ class EmbeddingAgent:
                         
                     except Exception as embed_error:
                         print(f"[EmbeddingAgent] Error during dimension detection: {embed_error}")
-                        print("[EmbeddingAgent] Falling back to safe assumption of 384 dimensions")
-                        self.dim = 384
+                        print("[EmbeddingAgent] Falling back to safe assumption of 3072 dimensions")
+                        self.dim = 3072
                         self.index = faiss.IndexFlatL2(self.dim)
                         
             except Exception as e:
@@ -139,10 +139,9 @@ class EmbeddingAgent:
 
     def embed(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a list of text chunks."""
-        print(f"[EmbeddingAgent] Creating embeddings for {len(texts)} texts using HuggingFace")
+        print(f"[EmbeddingAgent] Creating embeddings for {len(texts)} texts using Google API")
         try:
-            # Process in smaller batches to avoid memory issues
-            batch_size = 1  # Ultra-safe batch size
+            batch_size = 10  
             all_embeddings = []
             
             for i in range(0, len(texts), batch_size):
@@ -270,15 +269,15 @@ class RankingAgent:
         
         ranking_prompt = f'''You are an expert assistant judging a RAG system. Given several candidate answers (each with their retrieval context) to the same question, first select the single most accurate/supportable candidate, then explain briefly why you chose it.
 
-Output exactly this format:
-Candidate #N
-Reason: <reason>
+                            Output exactly this format:
+                            Candidate #N
+                            Reason: <reason>
 
-Best Answer:
-<full text>
+                            Best Answer:
+                            <full text>
 
-Question: {question}
-'''
+                            Question: {question}
+                        '''
         
         summary = ""
         for idx, (ctx, ans) in enumerate(zip(candidate_contexts, candidate_answers), 1):
@@ -403,14 +402,14 @@ class RAGOrchestrator:
                 # Generate final answer with both contexts
                 final_prompt = f'''Answer the question using both document and web contexts.
 
-Document Context:
-{doc_context}
+                                    Document Context:
+                                    {doc_context}
 
-Web Context:
-{web_context}
+                                    Web Context:
+                                    {web_context}
 
-Question: {question}
-Answer:'''
+                                    Question: {question}
+                                    Answer:'''
                 
                 final_llm = get_llm_model_instance(temperature=0.2)
                 final_response = final_llm.invoke(final_prompt)

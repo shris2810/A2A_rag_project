@@ -21,7 +21,8 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 
 from dotenv import load_dotenv, find_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_huggingface import HuggingFaceEmbeddings
+
 
 # Load environment variables, overriding any existing OS placeholder variables
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -65,116 +66,32 @@ def get_llm_model_instance(temperature: float = 0):
     )
 
 def get_embedding_model(use_huggingface: bool = True):
-    """Get embedding model with safer HuggingFace models as default."""
-    
-    if use_huggingface:
-        # Try multiple safe HuggingFace models in order of preference
-        safe_models = [
-            {
-                "name": "sentence-transformers/all-MiniLM-L6-v2",
-                "kwargs": {'device': 'cpu'},
-                "encode_kwargs": {'normalize_embeddings': True}
-            },
-            {
-                "name": "sentence-transformers/paraphrase-MiniLM-L6-v2", 
-                "kwargs": {'device': 'cpu'},
-                "encode_kwargs": {'normalize_embeddings': True}
-            },
-            {
-                "name": "sentence-transformers/all-mpnet-base-v2",
-                "kwargs": {'device': 'cpu'},
-                "encode_kwargs": {'normalize_embeddings': True}
-            }
-        ]
-        
-        for model_config in safe_models:
-            try:
-                print(f"[INFO] Trying HuggingFace model: {model_config['name']}")
-                return HuggingFaceEmbeddings(
-                    model_name=model_config["name"],
-                    model_kwargs=model_config["kwargs"],
-                    encode_kwargs=model_config["encode_kwargs"]
-                )
-            except Exception as e:
-                print(f"[ERROR] Failed to load {model_config['name']}: {e}")
-                continue
-        
-        print("[ERROR] All HuggingFace models failed, falling back to Google embeddings...")
-    
+    """Get embedding model with safer Google Generative AI embeddings"""
     # Use Google embeddings (more stable)
     print("[INFO] Using Google Generative AI embeddings")
     return GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         google_api_key=os.getenv("GOOGLE_API_KEY")
     )
 
 def get_safe_embedding_model():
     """
-    Get the safest embedding model that absolutely avoids segmentation faults.
-    Uses the most lightweight and stable HuggingFace model available.
+    Get the global embedding model instance using Google Generative AI API.
     """
-    # Set additional safety environment variables if not already set
-    safety_vars = {
-        'OMP_NUM_THREADS': '1',
-        'MKL_NUM_THREADS': '1', 
-        'OPENBLAS_NUM_THREADS': '1',
-        'NUMEXPR_NUM_THREADS': '1',
-        'TOKENIZERS_PARALLELISM': 'false'
-    }
-    
-    for var, value in safety_vars.items():
-        if var not in os.environ:
-            os.environ[var] = value
-            
-    # Try multiple safe configurations in order of preference
-    safe_configs = [
-        {
-            "model": "sentence-transformers/all-MiniLM-L6-v2",
-            "kwargs": {'device': 'cpu', 'trust_remote_code': False},
-            "encode_kwargs": {'normalize_embeddings': True, 'batch_size': 1}
-        },
-        {
-            "model": "sentence-transformers/paraphrase-MiniLM-L6-v2",
-            "kwargs": {'device': 'cpu', 'trust_remote_code': False},
-            "encode_kwargs": {'normalize_embeddings': True, 'batch_size': 1}
-        },
-        {
-            "model": "sentence-transformers/all-MiniLM-L6-v2",
-            "kwargs": {'device': 'cpu', 'trust_remote_code': False},
-            "encode_kwargs": {'normalize_embeddings': True}
-        }
-    ]
-    
-    for i, config in enumerate(safe_configs):
-        try:
-            print(f"[INFO] Trying ultra-safe HuggingFace model: {config['model']}")
-            print(f"   Configuration {i+1}/{len(safe_configs)}: batch_size={config['encode_kwargs'].get('batch_size', 'default')}")
-            
-            # Create the model with ultra-safe settings
-            model = HuggingFaceEmbeddings(
-                model_name=config["model"],
-                model_kwargs=config["kwargs"],
-                encode_kwargs=config["encode_kwargs"]
-            )
-            
-            # Test the model with a simple embedding to ensure it works
-            print(f"[TEST] Testing model with simple embedding...")
-            test_result = model.embed_documents(["test"])
-            print(f"[SUCCESS] Model test successful! Dimension: {len(test_result[0])}")
-            return model
-            
-        except Exception as e:
-            print(f"[ERROR] Failed to load {config['model']}: {e}")
-            print(f"   Error type: {type(e).__name__}")
-            continue
-    
-    # If all HuggingFace models fail, use Google as ultimate fallback
-    print("[ERROR] All HuggingFace models failed")
-    print("[INFO] Using Google embeddings as ultimate fallback")
-    return GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
-        google_api_key=os.getenv("GOOGLE_API_KEY")
-    )
+
+    try:
+        return GoogleGenerativeAIEmbeddings(
+            model="models/gemini-embedding-001",
+            google_api_key=os.getenv("GOOGLE_API_KEY")
+        )
+    except Exception as e:
+        print(f"[WARN] gemini-embedding-001 failed: {e}")
+        print("[INFO] Falling back to Google gemini-embedding-2...")
+        # Ultimate fallback 
+        return GoogleGenerativeAIEmbeddings(
+            model="models/gemini-embedding-2",
+            google_api_key=os.getenv("GOOGLE_API_KEY")
+        )
 
 # Global model instances (lazy initialization)
 llm_model = None
@@ -195,14 +112,17 @@ def get_embed_model_instance():
     if embed_model is None:
         # Try the safe embedding model first, but with even more safety
         try:
-            embed_model = get_safe_embedding_model()
+            embed_model = GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-001",
+                google_api_key=os.getenv("GOOGLE_API_KEY")
+            )
             print(f"[CONFIG] Created embedding model instance: {MODEL_INFO['embed_model']}")
         except Exception as e:
-            print(f"[ERROR] Safe HuggingFace model failed: {e}")
-            print("[INFO] Falling back to Google embeddings for maximum safety...")
-            # Ultimate fallback to Google embeddings
+            print(f"[WARN] gemini-embedding-001 failed: {e}")
+            print("[INFO] Falling back to Google gemini-embedding-2...")
+            # Ultimate fallback 
             embed_model = GoogleGenerativeAIEmbeddings(
-                model="models/text-embedding-004",
+                model="models/gemini-embedding-2",
                 google_api_key=os.getenv("GOOGLE_API_KEY")
             )
             print("[CONFIG] Created Google embedding model as fallback")
@@ -214,9 +134,9 @@ def get_model_info():
     return {
         "model2use": "google",
         "llm_model": "Google Gemini",
-        "embed_model": "HuggingFace Transformers (Safe Models) with Google Fallback",
+        "embed_model": "Google gemini-embedding-001 with fallback model gemini-embedding-2",
         "llm_provider": "Google Generative AI",
-        "embed_provider": "HuggingFace/Google Hybrid"
+        "embed_provider": "Google"
     }
 
 # For backward compatibility, create a property-like access
@@ -252,4 +172,4 @@ if __name__ == "__main__":
     
     print("\n[SUMMARY] Model Usage Summary:")
     print("* Gemini: Used for LLM operations (agents and RAG)")
-    print("* HuggingFace: Used for embedding operations (document processing)")
+    print("* Google embedding model : Used for embedding operations (document processing)")
